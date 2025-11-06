@@ -1,0 +1,27 @@
+# Monitor Multi-País V3.0 - Dependências (Versão Simplificada)
+# Esta versão não requer lxml (usa html.parser built-in)
+
+# Framework web
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# HTTP requests
+requests==2.31.0
+urllib3==2.1.0
+
+# Web scraping (BeautifulSoup funcionará com html.parser built-in)
+beautifulsoup4==4.12.2
+html5lib==1.1
+
+# Playwright para scrapers avançados (opcional - pode ser comentado se não funcionar)
+# playwright==1.40.0
+
+# Utilitários
+python-dateutil==2.8.2
+
+# Para ambientes com proxy/VPN
+PySocks==1.7.1
+
+# NOTA: lxml foi removido pois requer dependências do sistema.
+# BeautifulSoup usará html.parser (built-in) como alternativa.
+# Isso não afeta a funcionalidade do sistema.

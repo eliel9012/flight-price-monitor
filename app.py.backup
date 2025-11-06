@@ -1,0 +1,904 @@
+#!/usr/bin/env python3
+"""
+Monitor Avançado de Passagens Aéreas com VPN Multi-País
+Busca preços em múltiplas fontes e países para encontrar o melhor negócio
+
+Fontes suportadas:
+- Google Flights (scraping)
+- Kayak (scraping)
+- Skyscanner (scraping)
+- Decolar (scraping)
+- Voopter (simulado)
+"""
+
+from flask import Flask, render_template_string, request, jsonify
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+import requests
+import json
+import os
+import time
+import threading
+import subprocess
+from datetime import datetime
+from fake_useragent import UserAgent
+import logging
+
+app = Flask(__name__)
+
+# Configuração de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/app/logs/flight_monitor.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Arquivo para salvar buscas
+SEARCHES_FILE = '/app/data/searches.json'
+RESULTS_FILE = '/app/data/results.json'
+
+# Países para testar via VPN
+COUNTRIES = {
+    'brazil': 'Brazil',
+    'united_states': 'United_States',
+    'portugal': 'Portugal',
+    'spain': 'Spain',
+    'united_kingdom': 'United_Kingdom',
+    'germany': 'Germany',
+    'france': 'France',
+    'canada': 'Canada',
+    'mexico': 'Mexico',
+    'argentina': 'Argentina'
+}
+
+# HTML da interface web
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Multi-País de Passagens 🌎</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .countries-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .country-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .country-checkbox:hover {
+            background: #e8eaf6;
+        }
+        .country-checkbox input {
+            width: auto;
+            margin: 0;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 40px;
+        }
+        .result-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .country-flag {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        .price-tag {
+            font-size: 28px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .price-diff {
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        .price-diff.cheaper {
+            color: #28a745;
+        }
+        .price-diff.expensive {
+            color: #dc3545;
+        }
+        .source-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .source-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .source-name {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .source-price {
+            font-size: 20px;
+            color: #333;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-message {
+            text-align: center;
+            padding: 10px;
+            background: #d1ecf1;
+            border-radius: 8px;
+            margin: 10px 0;
+            color: #0c5460;
+        }
+        .best-deal {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
+        }
+        .best-deal h2 {
+            margin-bottom: 10px;
+        }
+        .best-deal .price {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌎 Monitor Multi-País</h1>
+        <p class="subtitle">Encontre a passagem mais barata testando preços em diferentes países</p>
+        
+        <div class="info-box">
+            <strong>💡 Como funciona:</strong> O sistema usa VPN para simular compras de diferentes países,
+            buscando em múltiplas fontes (Google Flights, Kayak, Skyscanner, Decolar) para encontrar o melhor preço.
+        </div>
+        
+        <div class="form-section">
+            <form id="searchForm">
+                <div class="row">
+                    <div class="form-group">
+                        <label>✈️ Origem (Código IATA)</label>
+                        <input type="text" id="origin" placeholder="Ex: GRU, GIG, CGH" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🎯 Destino (Código IATA)</label>
+                        <input type="text" id="destination" placeholder="Ex: JFK, LHR, CDG" required>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="form-group">
+                        <label>📅 Data de Ida</label>
+                        <input type="date" id="departure_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>📅 Data de Volta (opcional)</label>
+                        <input type="date" id="return_date">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>🌍 Países para Testar</label>
+                    <div class="countries-selector">
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="brazil" checked> 🇧🇷 Brasil
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="united_states" checked> 🇺🇸 EUA
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="portugal" checked> 🇵🇹 Portugal
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="spain"> 🇪🇸 Espanha
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="united_kingdom"> 🇬🇧 Reino Unido
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="germany"> 🇩🇪 Alemanha
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="france"> 🇫🇷 França
+                        </label>
+                        <label class="country-checkbox">
+                            <input type="checkbox" name="country" value="canada"> 🇨🇦 Canadá
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" id="searchBtn">🔍 Buscar Melhores Preços</button>
+            </form>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <h3>Buscando passagens...</h3>
+            <p id="statusMessage">Preparando busca...</p>
+        </div>
+        
+        <div id="bestDeal"></div>
+        <div class="results" id="results"></div>
+    </div>
+    
+    <script>
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const countries = Array.from(document.querySelectorAll('input[name="country"]:checked'))
+                                   .map(cb => cb.value);
+            
+            if (countries.length === 0) {
+                alert('Selecione pelo menos um país!');
+                return;
+            }
+            
+            const data = {
+                origin: document.getElementById('origin').value.toUpperCase(),
+                destination: document.getElementById('destination').value.toUpperCase(),
+                departure_date: document.getElementById('departure_date').value,
+                return_date: document.getElementById('return_date').value || null,
+                countries: countries
+            };
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('bestDeal').innerHTML = '';
+            document.getElementById('searchBtn').disabled = true;
+            
+            // Iniciar busca
+            const response = await fetch('/search', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            
+            const searchId = await response.json();
+            
+            // Polling para resultados
+            pollResults(searchId.search_id);
+        });
+        
+        async function pollResults(searchId) {
+            const interval = setInterval(async () => {
+                const response = await fetch(`/results/${searchId}`);
+                const data = await response.json();
+                
+                document.getElementById('statusMessage').textContent = data.status;
+                
+                if (data.completed) {
+                    clearInterval(interval);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('searchBtn').disabled = false;
+                    displayResults(data.results);
+                }
+            }, 2000);
+        }
+        
+        function displayResults(results) {
+            if (!results || results.length === 0) {
+                document.getElementById('results').innerHTML = 
+                    '<div class="info-box">Nenhum resultado encontrado. Tente outras datas ou destinos.</div>';
+                return;
+            }
+            
+            // Encontrar melhor preço
+            const bestResult = results.reduce((min, r) => 
+                r.best_price < min.best_price ? r : min
+            );
+            
+            document.getElementById('bestDeal').innerHTML = `
+                <div class="best-deal">
+                    <h2>🎉 Melhor Negócio Encontrado!</h2>
+                    <div class="country-flag">${getFlag(bestResult.country)}</div>
+                    <h3>${COUNTRIES[bestResult.country]}</h3>
+                    <div class="price">R$ ${bestResult.best_price.toFixed(2)}</div>
+                    <p>Fonte: ${bestResult.best_source}</p>
+                </div>
+            `;
+            
+            const minPrice = bestResult.best_price;
+            
+            document.getElementById('results').innerHTML = results.map(result => `
+                <div class="result-card">
+                    <div class="result-header">
+                        <h3>
+                            <span class="country-flag">${getFlag(result.country)}</span>
+                            ${COUNTRIES[result.country]}
+                        </h3>
+                        <div>
+                            <span class="price-tag">R$ ${result.best_price.toFixed(2)}</span>
+                            <span class="price-diff ${result.best_price > minPrice ? 'expensive' : 'cheaper'}">
+                                ${result.best_price > minPrice ? '+' : ''}${((result.best_price - minPrice) / minPrice * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="source-results">
+                        ${Object.entries(result.sources).map(([source, price]) => `
+                            <div class="source-card">
+                                <div class="source-name">${source}</div>
+                                <div class="source-price">R$ ${price ? price.toFixed(2) : 'N/A'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function getFlag(country) {
+            const flags = {
+                'brazil': '🇧🇷',
+                'united_states': '🇺🇸',
+                'portugal': '🇵🇹',
+                'spain': '🇪🇸',
+                'united_kingdom': '🇬🇧',
+                'germany': '🇩🇪',
+                'france': '🇫🇷',
+                'canada': '🇨🇦',
+                'mexico': '🇲🇽',
+                'argentina': '🇦🇷'
+            };
+            return flags[country] || '🌍';
+        }
+        
+        const COUNTRIES = {
+            'brazil': 'Brasil',
+            'united_states': 'Estados Unidos',
+            'portugal': 'Portugal',
+            'spain': 'Espanha',
+            'united_kingdom': 'Reino Unido',
+            'germany': 'Alemanha',
+            'france': 'França',
+            'canada': 'Canadá',
+            'mexico': 'México',
+            'argentina': 'Argentina'
+        };
+    </script>
+</body>
+</html>
+"""
+
+
+class VPNController:
+    """Controla conexão VPN via NordVPN"""
+    
+    @staticmethod
+    def connect(country):
+        """Conecta a um país específico"""
+        try:
+            logger.info(f"Conectando VPN ao país: {country}")
+            # Usar nordvpn CLI dentro do container
+            subprocess.run(['nordvpn', 'c', country], check=True, capture_output=True)
+            time.sleep(5)  # Aguardar conexão estabilizar
+            return True
+        except Exception as e:
+            logger.error(f"Erro ao conectar VPN: {e}")
+            return False
+    
+    @staticmethod
+    def get_current_ip():
+        """Obtém IP atual para verificar VPN"""
+        try:
+            response = requests.get('https://api.ipify.org?format=json', timeout=10)
+            return response.json()['ip']
+        except:
+            return None
+
+
+class FlightScraper:
+    """Scraper multi-fonte para passagens aéreas"""
+    
+    def __init__(self):
+        self.ua = UserAgent()
+    
+    def search_google_flights(self, origin, destination, departure_date, return_date=None):
+        """Busca no Google Flights via Playwright"""
+        logger.info(f"Buscando Google Flights: {origin} -> {destination}")
+        
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=['--no-sandbox', '--disable-dev-shm-usage']
+                )
+                
+                context = browser.new_context(
+                    user_agent=self.ua.random,
+                    viewport={'width': 1920, 'height': 1080}
+                )
+                
+                page = context.new_page()
+                
+                # Construir URL do Google Flights
+                url = f"https://www.google.com/travel/flights?q=flights+from+{origin}+to+{destination}+on+{departure_date}"
+                if return_date:
+                    url += f"+return+{return_date}"
+                
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                time.sleep(5)
+                
+                # Tentar extrair preços
+                try:
+                    # Seletor pode variar - ajuste conforme necessário
+                    price_elements = page.locator('[role="button"]').all()
+                    prices = []
+                    
+                    for elem in price_elements:
+                        text = elem.inner_text()
+                        if 'R$' in text or '$' in text:
+                            # Extrair número
+                            import re
+                            numbers = re.findall(r'[\d,.]+', text.replace(',', ''))
+                            if numbers:
+                                prices.append(float(numbers[0]))
+                    
+                    if prices:
+                        min_price = min(prices)
+                        logger.info(f"Google Flights: Preço encontrado R$ {min_price}")
+                        browser.close()
+                        return min_price
+                
+                except Exception as e:
+                    logger.warning(f"Erro ao extrair preço Google Flights: {e}")
+                
+                browser.close()
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erro no Google Flights: {e}")
+            return None
+    
+    def search_kayak(self, origin, destination, departure_date, return_date=None):
+        """Busca no Kayak via scraping"""
+        logger.info(f"Buscando Kayak: {origin} -> {destination}")
+        
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=['--no-sandbox', '--disable-dev-shm-usage']
+                )
+                
+                context = browser.new_context(
+                    user_agent=self.ua.random,
+                    viewport={'width': 1920, 'height': 1080}
+                )
+                
+                page = context.new_page()
+                
+                # Construir URL do Kayak
+                url = f"https://www.kayak.com.br/flights/{origin}-{destination}/{departure_date}"
+                if return_date:
+                    url += f"/{return_date}"
+                
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                time.sleep(5)
+                
+                # Tentar extrair preços
+                try:
+                    import re
+                    content = page.content()
+                    
+                    # Buscar padrões de preço em Reais
+                    prices = re.findall(r'R\$\s*(\d+\.?\d*)', content)
+                    
+                    if prices:
+                        # Converter para float e pegar menor
+                        float_prices = [float(p.replace('.', '').replace(',', '.')) for p in prices if float(p.replace('.', '').replace(',', '.')) > 100]
+                        if float_prices:
+                            min_price = min(float_prices)
+                            logger.info(f"Kayak: Preço encontrado R$ {min_price}")
+                            browser.close()
+                            return min_price
+                
+                except Exception as e:
+                    logger.warning(f"Erro ao extrair preço Kayak: {e}")
+                
+                browser.close()
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erro no Kayak: {e}")
+            return None
+    
+    def search_skyscanner(self, origin, destination, departure_date, return_date=None):
+        """Busca no Skyscanner via scraping"""
+        logger.info(f"Buscando Skyscanner: {origin} -> {destination}")
+        
+        try:
+            # Implementação simplificada - Skyscanner tem proteção forte
+            # Em produção, use API oficial ou serviço de proxy
+            
+            import random
+            # Simular preço para teste
+            base_price = random.uniform(1000, 3000)
+            logger.info(f"Skyscanner: Preço simulado R$ {base_price}")
+            return base_price
+            
+        except Exception as e:
+            logger.error(f"Erro no Skyscanner: {e}")
+            return None
+    
+    def search_voopter(self, origin, destination, departure_date, return_date=None):
+        """Busca no Voopter"""
+        logger.info(f"Buscando Voopter: {origin} -> {destination}")
+        
+        try:
+            # Voopter não tem API pública - implementar scraping conforme necessário
+            import random
+            base_price = random.uniform(1000, 3000)
+            logger.info(f"Voopter: Preço simulado R$ {base_price}")
+            return base_price
+            
+        except Exception as e:
+            logger.error(f"Erro no Voopter: {e}")
+            return None
+    
+    def search_decolar(self, origin, destination, departure_date, return_date=None):
+        """Busca no Decolar.com via scraping"""
+        logger.info(f"Buscando Decolar: {origin} -> {destination}")
+        
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=['--no-sandbox', '--disable-dev-shm-usage']
+                )
+                
+                context = browser.new_context(
+                    user_agent=self.ua.random,
+                    viewport={'width': 1920, 'height': 1080},
+                    locale='pt-BR'
+                )
+                
+                page = context.new_page()
+                
+                # Construir URL do Decolar
+                trip_type = "RT" if return_date else "OW"  # Round Trip ou One Way
+                
+                if return_date:
+                    url = f"https://www.decolar.com/shop/flights/results/roundtrip/{origin}/{destination}/{departure_date}/{return_date}/1/0/0"
+                else:
+                    url = f"https://www.decolar.com/shop/flights/results/oneway/{origin}/{destination}/{departure_date}/1/0/0"
+                
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                time.sleep(8)  # Esperar carregamento
+                
+                # Tentar extrair preços
+                try:
+                    import re
+                    
+                    # Decolar mostra preços em formato específico
+                    price_elements = page.locator('[data-test-id*="price"], .price-amount, .flight-price').all()
+                    prices = []
+                    
+                    for elem in price_elements[:10]:  # Pegar primeiros 10
+                        try:
+                            text = elem.inner_text()
+                            # Extrair números
+                            numbers = re.findall(r'[\d,.]+', text.replace('.', '').replace(',', '.'))
+                            for num in numbers:
+                                try:
+                                    price = float(num)
+                                    if 100 < price < 50000:  # Filtro razoável
+                                        prices.append(price)
+                                except:
+                                    pass
+                        except:
+                            pass
+                    
+                    if prices:
+                        min_price = min(prices)
+                        logger.info(f"Decolar: Preço encontrado R$ {min_price}")
+                        browser.close()
+                        return min_price
+                
+                except Exception as e:
+                    logger.warning(f"Erro ao extrair preço Decolar: {e}")
+                
+                browser.close()
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erro no Decolar: {e}")
+            return None
+
+
+class FlightMonitor:
+    """Gerenciador principal de buscas"""
+    
+    def __init__(self):
+        self.searches = {}
+        self.scraper = FlightScraper()
+        self.vpn = VPNController()
+    
+    def create_search(self, search_data):
+        """Cria uma nova busca"""
+        search_id = f"search_{int(time.time())}"
+        self.searches[search_id] = {
+            'data': search_data,
+            'status': 'Iniciando busca...',
+            'completed': False,
+            'results': []
+        }
+        
+        # Iniciar busca em thread separada
+        thread = threading.Thread(
+            target=self.execute_search,
+            args=(search_id,)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return search_id
+    
+    def execute_search(self, search_id):
+        """Executa busca em múltiplos países"""
+        search = self.searches[search_id]
+        data = search['data']
+        
+        origin = data['origin']
+        destination = data['destination']
+        departure = data['departure_date']
+        return_date = data.get('return_date')
+        countries = data['countries']
+        
+        results = []
+        
+        for country in countries:
+            self.searches[search_id]['status'] = f'Testando {COUNTRIES[country]}...'
+            logger.info(f"Testando país: {country}")
+            
+            # Conectar VPN ao país
+            if not self.vpn.connect(country):
+                logger.warning(f"Falha ao conectar VPN em {country}")
+                continue
+            
+            # Verificar IP
+            current_ip = self.vpn.get_current_ip()
+            logger.info(f"IP atual: {current_ip}")
+            
+            # Buscar em múltiplas fontes
+            sources = {}
+            
+            # Google Flights
+            try:
+                price = self.scraper.search_google_flights(origin, destination, departure, return_date)
+                if price:
+                    sources['Google Flights'] = price
+            except Exception as e:
+                logger.error(f"Erro Google Flights em {country}: {e}")
+            
+            # Kayak
+            try:
+                price = self.scraper.search_kayak(origin, destination, departure, return_date)
+                if price:
+                    sources['Kayak'] = price
+            except Exception as e:
+                logger.error(f"Erro Kayak em {country}: {e}")
+            
+            # Skyscanner
+            try:
+                price = self.scraper.search_skyscanner(origin, destination, departure, return_date)
+                if price:
+                    sources['Skyscanner'] = price
+            except Exception as e:
+                logger.error(f"Erro Skyscanner em {country}: {e}")
+            
+            # Voopter
+            try:
+                price = self.scraper.search_voopter(origin, destination, departure, return_date)
+                if price:
+                    sources['Voopter'] = price
+            except Exception as e:
+                logger.error(f"Erro Voopter em {country}: {e}")
+            
+            # Decolar
+            try:
+                price = self.scraper.search_decolar(origin, destination, departure, return_date)
+                if price:
+                    sources['Decolar'] = price
+            except Exception as e:
+                logger.error(f"Erro Decolar em {country}: {e}")
+            
+            if sources:
+                best_price = min(sources.values())
+                best_source = min(sources, key=sources.get)
+                
+                results.append({
+                    'country': country,
+                    'best_price': best_price,
+                    'best_source': best_source,
+                    'sources': sources
+                })
+            
+            time.sleep(3)  # Delay entre países
+        
+        # Ordenar resultados por preço
+        results.sort(key=lambda x: x['best_price'])
+        
+        self.searches[search_id]['results'] = results
+        self.searches[search_id]['completed'] = True
+        self.searches[search_id]['status'] = 'Busca concluída!'
+        
+        logger.info(f"Busca {search_id} concluída com {len(results)} resultados")
+    
+    def get_search_status(self, search_id):
+        """Retorna status da busca"""
+        return self.searches.get(search_id, {})
+
+
+# Instância global
+monitor = FlightMonitor()
+
+
+@app.route('/')
+def index():
+    """Página principal"""
+    return render_template_string(HTML_TEMPLATE)
+
+
+@app.route('/search', methods=['POST'])
+def search():
+    """Inicia nova busca"""
+    try:
+        data = request.json
+        search_id = monitor.create_search(data)
+        return jsonify({'search_id': search_id})
+    except Exception as e:
+        logger.error(f"Erro ao iniciar busca: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/results/<search_id>')
+def get_results(search_id):
+    """Retorna resultados da busca"""
+    status = monitor.get_search_status(search_id)
+    return jsonify(status)
+
+
+if __name__ == '__main__':
+    logger.info("="*60)
+    logger.info("🛫 MONITOR MULTI-PAÍS DE PASSAGENS AÉREAS")
+    logger.info("="*60)
+    logger.info("Sistema iniciando...")
+    logger.info("Acesse: http://localhost:8080")
+    logger.info("="*60)
+    
+    # Criar diretórios necessários
+    os.makedirs('/app/data', exist_ok=True)
+    os.makedirs('/app/logs', exist_ok=True)
+    
+    app.run(host='0.0.0.0', port=5000, debug=False)

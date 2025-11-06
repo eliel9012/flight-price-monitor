@@ -1,0 +1,25 @@
+# Monitor Multi-País V3.0 - Dependências para Raspberry Pi
+# Use: pip3 install -r requirements_raspberry.txt --break-system-packages
+
+# Framework web (usará Werkzeug do sistema se disponível)
+Flask
+
+# HTTP requests
+requests
+urllib3
+
+# Web scraping
+beautifulsoup4
+html5lib
+
+# Utilitários
+python-dateutil
+
+# Para ambientes com proxy/VPN
+PySocks
+
+# NOTA IMPORTANTE:
+# - Não especificamos versões para evitar conflitos com pacotes do sistema
+# - lxml foi removido (requer libs do sistema, usa html.parser)
+# - Playwright é opcional (scrapers funcionam sem ele)
+# - Werkzeug usará versão do sistema Debian se disponível

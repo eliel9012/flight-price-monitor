@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+data/
+logs/
+*.log
+.env
+.venv
+*.db
+credentials.json
+secrets.json

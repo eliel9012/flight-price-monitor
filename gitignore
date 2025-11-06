@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Dados e Logs
+data/
+logs/
+*.log
+*.log.*
+service.log
+service_error.log
+
+# Configurações locais
+.env
+.venv
+*.local
+config.local.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Resultados de busca
+search_*.json
+*.db
+*.sqlite
+
+# Credenciais (IMPORTANTE!)
+credentials.json
+secrets.json
+.credentials
+*.key
+*.pem
+
+# VPN Configs
+vpn_credentials.txt
+nordvpn_credentials.txt
+
+# Backups
+*.backup
+*.bak
+*.old
+
+# Sistema
+.cache/
+tmp/
+temp/
+*.tmp
+
+# Playwright
+.playwright/
+playwright-state/
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
