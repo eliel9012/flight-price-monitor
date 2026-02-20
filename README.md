@@ -15,6 +15,13 @@
 
 ---
 
+## ℹ️ About
+
+Flight Price Monitor Multi-Country is an open-source web app that compares airfare across countries by combining VPN-based location simulation, multi-site search, and automatic BRL conversion.  
+It helps travelers quickly spot the cheapest market to buy from and estimate real savings before booking.
+
+---
+
 ## 🎯 What is this?
 
 A smart flight price monitoring system that simulates purchases from different countries using VPN, searches across **5 major travel sites**, and automatically converts all prices to your local currency (BRL). Perfect for finding the best deals on international flights!
