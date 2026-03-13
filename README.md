@@ -1,5 +1,27 @@
 # ✈️ Flight Price Monitor Multi-Country
 
+## Português
+
+Aplicação open source para comparar preços de passagens aéreas entre países, simulando diferentes mercados de compra e convertendo os valores para BRL.
+
+Resumo rápido:
+
+- compara preços em múltiplos países
+- integra VPN por país
+- consulta vários sites de viagem
+- mostra ranking, economia estimada e conversão cambial
+
+## English
+
+Open-source app for comparing flight prices across countries by simulating different purchase markets and converting results to BRL.
+
+Quick summary:
+
+- compares prices across multiple countries
+- integrates VPN switching per country
+- queries multiple travel sites
+- shows ranking, estimated savings, and currency conversion
+
 <div align="center">
 
 ![Version](https://img.shields.io/badge/version-3.0-blue)
