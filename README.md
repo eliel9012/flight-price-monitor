@@ -1,437 +1,153 @@
-# ✈️ Flight Price Monitor Multi-Country
-
-## Português
-
-Aplicação open source para comparar preços de passagens aéreas entre países, simulando diferentes mercados de compra e convertendo os valores para BRL.
-
-Resumo rápido:
-
-- compara preços em múltiplos países
-- integra VPN por país
-- consulta vários sites de viagem
-- mostra ranking, economia estimada e conversão cambial
+# Flight Price Monitor Multi-Country
 
 ## English
 
-Open-source app for comparing flight prices across countries by simulating different purchase markets and converting results to BRL.
+Open-source web application for comparing airfare across multiple countries by simulating different purchase markets and normalizing prices to BRL.
 
-Quick summary:
+### Overview
 
-- compares prices across multiple countries
-- integrates VPN switching per country
-- queries multiple travel sites
-- shows ranking, estimated savings, and currency conversion
+The project is built to answer a practical question: if airlines and travel websites price differently by region, where is the cheapest market to buy the same trip?
 
-<div align="center">
+It combines:
 
-![Version](https://img.shields.io/badge/version-3.0-blue)
-![Python](https://img.shields.io/badge/python-3.8+-green)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%20%7C%20Linux-orange)
+- country-based search simulation
+- optional VPN switching
+- multi-site scraping
+- BRL normalization
+- ranking and savings estimation
 
-**Compare flight prices across different countries and save up to 30% on your tickets!**
+### Main Features
 
-[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Contributing](#-contributing)
+- multi-country comparison workflow
+- support for major travel websites
+- automated exchange-rate conversion
+- savings calculation and best-market ranking
+- responsive web interface
+- background service mode with systemd support
+- detailed logs and long-running operation on Linux or Raspberry Pi
 
-</div>
+### Quick Start
 
----
-
-## ℹ️ About
-
-Flight Price Monitor Multi-Country is an open-source web app that compares airfare across countries by combining VPN-based location simulation, multi-site search, and automatic BRL conversion.  
-It helps travelers quickly spot the cheapest market to buy from and estimate real savings before booking.
-
----
-
-## 🎯 What is this?
-
-A smart flight price monitoring system that simulates purchases from different countries using VPN, searches across **5 major travel sites**, and automatically converts all prices to your local currency (BRL). Perfect for finding the best deals on international flights!
-
-### 💡 Why does this work?
-
-Airlines and travel sites often show different prices based on your location. By checking prices from multiple countries, you can find significantly cheaper tickets - sometimes saving **hundreds of dollars** on the same flight!
-
----
-
-## ✨ Features
-
-### 🔥 Version 3.0 Highlights
-
-- ✈️ **Animated UI** - Beautiful plane animation during search
-- 🔒 **VPN Integration** - Automatic VPN switching per country (NordVPN support)
-- 🌐 **5 Travel Sites** - Google Flights, Kayak, Skyscanner, Decolar, Momondo
-- 💰 **Auto Currency Conversion** - Real-time exchange rates with 1-hour cache
-- 📊 **Smart Comparison** - Automatic ranking and savings calculation
-- 🎯 **Real Web Scrapers** - Playwright + BeautifulSoup for actual price data
-- 🔄 **Auto-restart** - Systemd service with automatic recovery
-- 📱 **Responsive Design** - Works on desktop, tablet, and mobile
-- 📝 **Detailed Logging** - Full audit trail of all searches
-- 🚀 **Background Service** - Runs 24/7 with systemd integration
-
----
-
-## 🖼️ Demo
-
-### Search Interface
-```
-┌────────────────────────────────────────────────┐
-│  ✈️ Flight Monitor Multi-Country V3.0          │
-│  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
-│                                                │
-│  ✈️ Animated  🔒 VPN     🌐 5 Sites           │
-│  Plane       Per Country  +Momondo!           │
-│                                                │
-│  Origin: GRU  →  Destination: LIS             │
-│  Dates: 15/12 → 22/12                         │
-│                                                │
-│  Countries: 🇧🇷 Brazil  🇺🇸 USA  🇵🇹 Portugal │
-│                                                │
-│  [🚀 SEARCH BEST PRICES]                      │
-└────────────────────────────────────────────────┘
-```
-
-### Results
-```
-🏆 BEST PRICE FOUND: R$ 2,440.80
-   From Portugal 🇵🇹
-   💰 Save R$ 449.20 (15.5%)
-
-┌────────────────────────────────────────────────┐
-│ 🥇 🇵🇹 PORTUGAL                                │
-│ EUR 452.00 → R$ 2,440.80                       │
-│ 🌐 Kayak | ✈️ GRU→LIS | 🔒 VPN: ON            │
-└────────────────────────────────────────────────┘
-
-┌────────────────────────────────────────────────┐
-│ 🥈 🇺🇸 USA                   (+3%)             │
-│ USD 505.00 → R$ 2,525.00                       │
-│ 🌐 Google Flights | ✈️ GRU→LIS                │
-└────────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
+Requirements:
 
 - Python 3.8+
-- Raspberry Pi / Linux server (or any Unix-like system)
-- 512MB RAM minimum
-- Internet connection
+- Linux or Raspberry Pi environment
+- internet access
 
-### Installation (3 commands)
+Basic setup:
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/yourusername/flight-price-monitor.git
+git clone https://github.com/eliel9012/flight-price-monitor.git
 cd flight-price-monitor
-
-# 2. Install dependencies & configure service
 chmod +x install_raspberry.sh setup_service.sh
 sudo ./install_raspberry.sh
 sudo ./setup_service.sh
-
-# 3. Access application
-# Open browser: http://localhost:8776
 ```
 
-**That's it!** The service now runs 24/7 and starts automatically on boot! 🎉
+Then open:
 
----
-
-## 📦 Installation
-
-### Detailed Installation
-
-#### Step 1: System Dependencies
-
-```bash
-sudo apt-get update
-sudo apt-get install -y \
-    libxml2-dev \
-    libxslt-dev \
-    python3-dev \
-    build-essential \
-    libssl-dev \
-    libffi-dev
+```text
+http://localhost:8776
 ```
 
-#### Step 2: Python Packages
+### Typical Usage
 
-```bash
-pip3 install --break-system-packages \
-    Flask \
-    requests \
-    beautifulsoup4 \
-    html5lib \
-    python-dateutil \
-    PySocks
-```
-
-#### Step 3: Optional - Playwright (for advanced scrapers)
-
-```bash
-pip3 install --break-system-packages playwright
-playwright install chromium
-```
-
-#### Step 4: Run Application
-
-```bash
-# Manual run
-python3 app_v3_COMPLETO.py
-
-# Or install as service (recommended)
-sudo ./setup_service.sh
-```
-
----
-
-## 🎮 Usage
-
-### Basic Search
-
-1. Access `http://localhost:8776` in your browser
-2. Enter origin (e.g., GRU) and destination (e.g., LIS) 
-3. Select dates
-4. Choose 3-5 countries to compare
-5. Click "SEARCH BEST PRICES"
-6. Wait 30-90 seconds for results
-7. Compare prices and save money! 💰
+1. enter origin and destination
+2. choose departure and return dates
+3. select a set of countries to compare
+4. start the search
+5. compare normalized results and estimated savings
 
 ### Service Management
 
-#### Using Interactive Menu (Easy)
-
 ```bash
-./manage_service.sh
-```
-
-#### Using Commands
-
-```bash
-# Check status
 sudo systemctl status flight-monitor
-
-# Restart
 sudo systemctl restart flight-monitor
-
-# View logs
 sudo journalctl -u flight-monitor -f
-
-# Stop
-sudo systemctl stop flight-monitor
 ```
 
----
+### Supported Countries
 
-## 🌍 Supported Countries (18)
+The app is set up to compare multiple markets including Brazil, United States, Portugal, Spain, United Kingdom, Germany, France, Canada, Argentina, Chile, Mexico, Italy, Netherlands, Ireland, Switzerland, Japan, Australia, and Turkey.
 
-🇧🇷 Brazil | 🇺🇸 USA | 🇵🇹 Portugal | 🇪🇸 Spain | 🇬🇧 UK | 🇩🇪 Germany  
-🇫🇷 France | 🇨🇦 Canada | 🇦🇷 Argentina | 🇨🇱 Chile | 🇲🇽 Mexico  
-🇮🇹 Italy | 🇳🇱 Netherlands | 🇮🇪 Ireland | 🇨🇭 Switzerland | 🇯🇵 Japan  
-🇦🇺 Australia | 🇹🇷 Turkey
+### Notes
 
-More can be easily added in `COUNTRY_MAP`!
+- VPN integration is optional but useful when testing truly different market conditions
+- some scrapers may require browser automation tooling such as Playwright
+- this project is designed for continuous use on Linux-like hosts
 
----
+## Português
 
-## 🔧 Configuration
+Aplicação web open source para comparar preços de passagens aéreas entre múltiplos países, simulando diferentes mercados de compra e normalizando os valores para BRL.
 
-### VPN Setup (Optional but Recommended)
+### Visão Geral
 
-For real VPN functionality:
+O projeto foi feito para responder a uma pergunta prática: se companhias aéreas e sites de viagem mudam o preço por região, em qual mercado sai mais barato comprar a mesma viagem?
 
-1. Install NordVPN via Docker
-2. Edit `app_v3_COMPLETO.py` line ~101
-3. Uncomment VPN connection code
+Ele combina:
 
-```python
-# Uncomment these lines:
-result = subprocess.run([
-    'docker', 'exec', 'nordvpn_flight',
-    'nordvpn', 'c', vpn_name
-], capture_output=True, text=True, timeout=30)
-```
+- simulação de busca por país
+- troca opcional de VPN
+- scraping em múltiplos sites
+- normalização para BRL
+- ranking e estimativa de economia
 
-### Change Port
+### Funcionalidades Principais
+
+- fluxo de comparação entre vários países
+- suporte a grandes sites de viagem
+- conversão automática por câmbio
+- cálculo de economia e ranking do melhor mercado
+- interface web responsiva
+- modo de serviço em segundo plano com suporte a systemd
+- logs detalhados e operação contínua em Linux ou Raspberry Pi
+
+### Início Rápido
+
+Requisitos:
+
+- Python 3.8+
+- ambiente Linux ou Raspberry Pi
+- acesso à internet
+
+Setup básico:
 
 ```bash
-# Edit app
-nano app_v3_COMPLETO.py
-
-# Change line (end of file):
-port = int(os.environ.get('FLASK_PORT', 8776))  # Change 8776 to desired port
+git clone https://github.com/eliel9012/flight-price-monitor.git
+cd flight-price-monitor
+chmod +x install_raspberry.sh setup_service.sh
+sudo ./install_raspberry.sh
+sudo ./setup_service.sh
 ```
 
-### Add More Countries
+Depois abra:
 
-Edit `COUNTRY_MAP` in `app_v3_COMPLETO.py`:
-
-```python
-'new_country': {
-    'name': 'Country Name',
-    'flag': '🏴',
-    'currency': 'USD',
-    'vpn': 'VPN_Server_Name'
-}
+```text
+http://localhost:8776
 ```
 
----
+### Uso Típico
 
-## 📊 Performance
+1. informe origem e destino
+2. escolha datas de ida e volta
+3. selecione os países a comparar
+4. inicie a busca
+5. compare os resultados normalizados e a economia estimada
 
-| Scenario | Time | Results |
-|----------|------|---------|
-| 1 country | ~15s | 5 prices |
-| 3 countries | ~45s | 15 prices |
-| 5 countries | ~75s | 25 prices |
+### Gerenciamento do Serviço
 
-**Raspberry Pi 4 (4GB):**
-- ✅ Runs perfectly
-- 💾 RAM usage: ~150MB
-- ⚡ Fast response times
-
----
-
-## 📚 Documentation
-
-- [Quick Start Guide](INSTALACAO_SERVICO_RAPIDA.txt) - Get started in minutes
-- [Raspberry Pi Guide](GUIA_RASPBERRY_PI.md) - Specific for Raspberry Pi
-- [Service Guide](GUIA_SERVICO_SYSTEMD.md) - Systemd service setup
-- [Technical Details](MELHORIAS_V3.md) - Architecture and improvements
-- [Troubleshooting](CORRECAO_RAPIDA.txt) - Common issues and solutions
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  Web Interface                      │
-│              (HTML + CSS + JS)                      │
-└────────────────┬────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────┐
-│              Flask API (Python)                     │
-│  • Search endpoint                                  │
-│  • Results endpoint                                 │
-│  • Health check                                     │
-└────────────────┬────────────────────────────────────┘
-                 │
-        ┌────────┴────────┐
-        │                 │
-┌───────▼──────┐  ┌──────▼───────┐
-│ VPN Manager  │  │  Exchange    │
-│  (NordVPN)   │  │  Rate API    │
-└───────┬──────┘  └──────────────┘
-        │
-┌───────▼─────────────────────────────────────────────┐
-│              Web Scrapers                           │
-│  • Playwright (Google Flights)                      │
-│  • BeautifulSoup (Kayak, Decolar, Momondo)          │
-└─────────────────────────────────────────────────────┘
+```bash
+sudo systemctl status flight-monitor
+sudo systemctl restart flight-monitor
+sudo journalctl -u flight-monitor -f
 ```
 
----
+### Países Suportados
 
-## 🛠️ Tech Stack
+O app já vem preparado para comparar mercados como Brasil, Estados Unidos, Portugal, Espanha, Reino Unido, Alemanha, França, Canadá, Argentina, Chile, México, Itália, Holanda, Irlanda, Suíça, Japão, Austrália e Turquia.
 
-- **Backend:** Flask (Python 3.8+)
-- **Web Scraping:** Playwright, BeautifulSoup4
-- **VPN:** NordVPN (Docker)
-- **Currency API:** AwesomeAPI
-- **Frontend:** Vanilla JavaScript, HTML5, CSS3
-- **Service:** systemd
-- **Platform:** Linux (optimized for Raspberry Pi)
+### Observações
 
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-### Areas for Improvement
-
-- [ ] Improve scraper success rate
-- [ ] Add more travel sites
-- [ ] Implement price history tracking
-- [ ] Add email/Telegram notifications
-- [ ] Create mobile app
-- [ ] Add ML price prediction
-- [ ] Support for hotels and car rentals
-
-### How to Contribute
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 🐛 Known Issues
-
-- **Scrapers may fail** due to anti-bot protections (fallback to simulated data)
-- **Playwright requires** ~500MB disk space for browser
-- **VPN requires** NordVPN subscription and Docker setup
-- **Rate limiting** may occur with frequent searches
-
-See [Issues](../../issues) for known bugs and planned features.
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 👏 Acknowledgments
-
-- Inspired by the need to find better flight deals
-- Built with love for travelers on a budget
-- Thanks to all contributors and users!
-
----
-
-## 📞 Support
-
-- 📧 Email: your-email@example.com
-- 🐛 Issues: [GitHub Issues](../../issues)
-- 💬 Discussions: [GitHub Discussions](../../discussions)
-
----
-
-## 🌟 Star History
-
-If this project helped you save money on flights, consider giving it a star! ⭐
-
----
-
-## 📈 Roadmap
-
-### Version 3.1 (Next)
-- [ ] Email notifications
-- [ ] Price history graphs
-- [ ] More countries (target: 30)
-- [ ] Better error handling
-
-### Version 4.0 (Future)
-- [ ] Mobile app (React Native)
-- [ ] Price prediction ML model
-- [ ] Hotel comparison
-- [ ] API for third-party integration
-
----
-
-<div align="center">
-
-**Made with ❤️ by travelers, for travelers**
-
-[⬆ Back to top](#-flight-price-monitor-multi-country)
-
-</div>
+- a integração com VPN é opcional, mas ajuda quando você quer testar mercados realmente diferentes
+- alguns scrapers podem exigir automação de navegador, como Playwright
+- o projeto foi pensado para uso contínuo em hosts Linux-like
